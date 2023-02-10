@@ -1,28 +1,60 @@
-# Code from https://debuggercafe.com/moving-object-detection-using-frame-differencing-with-opencv/
+# Code started based on https://debuggercafe.com/moving-object-detection-using-frame-differencing-with-opencv/
 
 import cv2
 import argparse
+import os
 
+from cv_helper import video_capture
 from get_background import get_background
 
+## Argument Description ##
 # --input path to the input video file
 # --consecutive-frames number of consecutive frames to consider for frame differencing and summing; choose any number of frames
 #                       from 2 to 8; lower tends to produce smoother video; author of original paper choose 8
 # default to start: "python detect.py --input input/video_1.mp4 -c 4"
 
+## Pros and Cons ##
+# Light weight computation (CPU) and generally works
+# Need objects to move
+# Requires consecutive frames so not real time
+# Camera must be stationary
+# Background need to be distuishable with objects and good lighting 
+
+# Parse arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', '--input', help='path to the input video',
                     required=True)
 parser.add_argument('-c', '--consecutive-frames', default=4, type=int,
                     dest='consecutive_frames', help='path to the input video')
+parser.add_argument('-b','--binary-threshold', default=50, type=int,
+                    dest='binary_threshold', help='0-255 binary threshold for image')
+parser.add_argument('-ct','--contour-threshold',default=500,type=int,
+                    dest='contour_threshold', help='Minimum area of contour threshold to process')
 args = vars(parser.parse_args())
 
 
-cap = cv2.VideoCapture(args['input'])
+# get the background model
+background = get_background(args['input'])
+
+# convert the background model to grayscale format
+background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
+frame_count = 0
+consecutive_frame = args['consecutive_frames']
+
+# Read video
+vidcap,success = video_capture(args['input'])
+
 # get the video frame height and width
-frame_width = int(cap.get(3))
-frame_height = int(cap.get(4))
+frame_width = int(vidcap.get(3))
+frame_height = int(vidcap.get(4))
+
+# Create save name
 save_name = f"outputs/{args['input'].split('/')[-1]}"
+
+# Create output directory if it doesn't exist
+if not os.path.isdir("outputs"):
+    os.makedirs("outputs")
+
 # define codec and create VideoWriter object
 out = cv2.VideoWriter(
     save_name,
@@ -30,18 +62,11 @@ out = cv2.VideoWriter(
     (frame_width, frame_height)
 )
 
-# get the background model
-background = get_background(args['input'])
-# convert the background model to grayscale format
-background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
-frame_count = 0
-consecutive_frame = args['consecutive_frames']
-
 # loop through frames
-while (cap.isOpened()):
-    ret, frame = cap.read()
+while (vidcap.isOpened()):
+    success, frame = vidcap.read()
 
-    if ret == True:
+    if success == True:
         frame_count += 1
         orig_frame = frame.copy()
 
@@ -54,7 +79,7 @@ while (cap.isOpened()):
         frame_diff = cv2.absdiff(gray, background)
 
         # thresholding to convert the frame to binary
-        ret, thres = cv2.threshold(frame_diff, 50, 255, cv2.THRESH_BINARY) # add var, argument for binary_threshold value
+        success, thres = cv2.threshold(frame_diff, args['binary_threshold'], 255, cv2.THRESH_BINARY) # add var, argument for binary_threshold value
 
         # dilate the frame a bit to get some more white area...
         # ... makes the detection of contours a bit easier
@@ -78,7 +103,7 @@ while (cap.isOpened()):
             for contour in contours:
                 # continue through the loop if contour area is less than 500...
                 # ... helps in removing noise detection
-                if cv2.contourArea(contour) < 500: # add var, arg for contour_threshold value
+                if cv2.contourArea(contour) < args['contour_threshold']: # add var, arg for contour_threshold value
                     continue
 
                 # get the xmin, ymin, width, and height coordinates from the contours
@@ -94,6 +119,6 @@ while (cap.isOpened()):
     else:
         break
 
-cap.release()
+vidcap.release()
 cv2.destroyAllWindows()
 

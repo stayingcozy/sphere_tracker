@@ -1,34 +1,49 @@
 # Code from https://debuggercafe.com/moving-object-detection-using-frame-differencing-with-opencv/
 
 import numpy as np 
+import random
 import cv2
-import matplotlib.pyplot as plt
 
-def get_background(file_path):
+from cv_helper import video_capture
 
-    # create Video object
-    cap = cv2.VideoCapture(file_path)
 
-    # we will randomly select 50 frames for the calculating the median
-    frame_indices = cap.get(cv2.CAP_PROP_FRAME_COUNT) * np.random.uniform(size=50)
+def get_background(filename):
+    # opted out of vidcap.set(CV_CAP_PROP_POS_FRAMES, index) as it takes too long and is unreliable
 
-    # we will store the frames in array
+    vidcap,success = video_capture(filename)
+
+    # Set random seed for consistent results
+    random.seed(100)
+
+    # Store frames in list of arrays
     frames = []
-    for idx in frame_indices:
-        # set the frame id to read that particular frame
-        cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
-        ret, frame = cap.read()
-        frames.append(frame)
+    while success:
+        # read frame
+        success, frame = vidcap.read()
+
+        # Flip coin to record
+        if bool(random.getrandbits(1)) and success:
+            frames.append(frame)
+
+    # Reduce number of frames for reasonable median calc time
+    if len(frames) > 50:
+
+        # Random sample without replacement
+        idx = random.sample(range(len(frames)),50)
+        
+        # convert to np array for indexing
+        frames = np.stack(frames,axis=0)
+        frames = frames[idx,:,:,:]
 
     # calculate the median
     median_frame = np.median(frames, axis=0).astype(np.uint8)
+
+    vidcap.release()
+
     return median_frame
 
 
 if __name__ == "__main__":
     mframe = get_background("input/video_1.mp4")
-
-    fig, ax = plt.subplots()
-    ax.imshow(data, extent=[0, 1, 0, 1])
-
-    plt.show()
+    cv2.imshow('image',mframe)
+    cv2.waitKey(0)
