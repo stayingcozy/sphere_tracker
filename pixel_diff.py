@@ -1,17 +1,20 @@
-# Code started based on https://debuggercafe.com/moving-object-detection-using-frame-differencing-with-opencv/
+# Code based off of paper "Moving Object Detection and Segmentation using Frame differencing and Summing Technique - Thapa, Sharma, Ghose"
+
 
 import cv2
 import argparse
 import os
 
 from cv_helper import video_capture
-from get_background import get_background
+from get_background_model import get_background_model
 
 ## Argument Description ##
 # --input path to the input video file
 # --consecutive-frames number of consecutive frames to consider for frame differencing and summing; choose any number of frames
 #                       from 2 to 8; lower tends to produce smoother video; author of original paper choose 8
-# default to start: "python detect.py --input input/video_1.mp4 -c 4"
+# --binary-threshold value from 0 to 255 that is the cutoff for 0's and 1's after difference
+# --contour-threshold minimum area cutoff value for object contour acceptance
+# default to start: "python detect.py --input input/video_1.mp4 -c 4 -b 50 -ct 500"
 
 ## Pros and Cons ##
 # Light weight computation (CPU) and generally works
@@ -34,7 +37,7 @@ args = vars(parser.parse_args())
 
 
 # get the background model
-background = get_background(args['input'])
+background = get_background_model(args['input'])
 
 # convert the background model to grayscale format
 background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
@@ -97,11 +100,11 @@ while (vidcap.isOpened()):
             contours, hierarchy = cv2.findContours(sum_frames, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
             # draw the contours, not strictly necessary
-            for i, cnt in enumerate(contours):
-                cv2.drawContours(frame, contours, i, (0, 0, 255), 3)
+            # for i, cnt in enumerate(contours):
+            #     cv2.drawContours(frame, contours, i, (0, 0, 255), 3)
 
             for contour in contours:
-                # continue through the loop if contour area is less than 500...
+                # continue through the loop if contour area is less than contour threshold...
                 # ... helps in removing noise detection
                 if cv2.contourArea(contour) < args['contour_threshold']: # add var, arg for contour_threshold value
                     continue

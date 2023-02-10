@@ -7,7 +7,7 @@ import cv2
 from cv_helper import video_capture
 
 
-def get_background(filename):
+def get_background_model(filename):
     # opted out of vidcap.set(CV_CAP_PROP_POS_FRAMES, index) as it takes too long and is unreliable
 
     vidcap,success = video_capture(filename)
