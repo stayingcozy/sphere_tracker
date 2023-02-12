@@ -1,4 +1,4 @@
-# Code from https://debuggercafe.com/moving-object-detection-using-frame-differencing-with-opencv/
+# Code based off of paper "Moving Object Detection and Segmentation using Frame differencing and Summing Technique - Thapa, Sharma, Ghose"
 
 import numpy as np 
 import random
@@ -44,6 +44,6 @@ def get_background_model(filename):
 
 
 if __name__ == "__main__":
-    mframe = get_background("input/video_1.mp4")
+    mframe = get_background_model("input/video_1.mp4")
     cv2.imshow('image',mframe)
     cv2.waitKey(0)

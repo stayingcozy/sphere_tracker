@@ -4,9 +4,11 @@
 import cv2
 import argparse
 import os
+import numpy as np
 
 from cv_helper import video_capture
 from get_background_model import get_background_model
+import detect_contour_sphere as dcs
 
 ## Argument Description ##
 # --input path to the input video file
@@ -41,7 +43,9 @@ background = get_background_model(args['input'])
 
 # convert the background model to grayscale format
 background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
-frame_count = 0
+
+# Frames Setup
+frame_count = -1
 consecutive_frame = args['consecutive_frames']
 
 # Read video
@@ -75,8 +79,11 @@ while (vidcap.isOpened()):
 
         # IMPORTANT STEP: convert the frame to grayscale first
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        if frame_count % consecutive_frame == 0 or frame_count == 1:
+        if frame_count % consecutive_frame == 0:
             frame_diff_list = []
+
+        if frame_count == 200:
+            print("check point")
 
         # find the difference between current frame and base frame
         frame_diff = cv2.absdiff(gray, background)
@@ -84,12 +91,12 @@ while (vidcap.isOpened()):
         # thresholding to convert the frame to binary
         success, thres = cv2.threshold(frame_diff, args['binary_threshold'], 255, cv2.THRESH_BINARY) # add var, argument for binary_threshold value
 
-        # dilate the frame a bit to get some more white area...
-        # ... makes the detection of contours a bit easier
-        dilate_frame = cv2.dilate(thres, None, iterations=2) # high iterations result in a white patch
+        # opening - erosion followed by dilation - remove dots | opposited is MORPH_CLOSE - remove holes in objects
+        kernel = np.ones((3,3),np.uint8)
+        opening_frame = cv2.morphologyEx(thres, cv2.MORPH_OPEN, kernel)
 
         # append the final result into the `frame_diff_list`
-        frame_diff_list.append(dilate_frame)
+        frame_diff_list.append(opening_frame)
 
         # if we have reached `consecutive_frame` number of frames
         if len(frame_diff_list) == consecutive_frame:
@@ -97,23 +104,34 @@ while (vidcap.isOpened()):
             sum_frames = sum(frame_diff_list)
 
             # find the contours around the white segmented areas
-            contours, hierarchy = cv2.findContours(sum_frames, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            contours, hierarchy = cv2.findContours(sum_frames, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE) #RETR_EXTERNAL
 
-            # draw the contours, not strictly necessary
-            # for i, cnt in enumerate(contours):
-            #     cv2.drawContours(frame, contours, i, (0, 0, 255), 3)
+            # # draw all the contours
+            # contours_image = cv2.drawContours(frame,contours,-1,(0,0,255),3)
 
             for contour in contours:
-                # continue through the loop if contour area is less than contour threshold...
-                # ... helps in removing noise detection
-                if cv2.contourArea(contour) < args['contour_threshold']: # add var, arg for contour_threshold value
-                    continue
 
-                # get the xmin, ymin, width, and height coordinates from the contours
-                (x, y, w, h) = cv2.boundingRect(contour)
+                # # draw individual contour
+                # contour_image = cv2.drawContours(frame,[contour],0,(255,0,0),3)
 
-                # draw the bounding boxes
-                cv2.rectangle(orig_frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+                # Area of contours - to skip low area (noise)
+                area = cv2.contourArea(contour)
+
+                # Skip based on both conditions
+                if (area > args['contour_threshold']): # add var, arg for contour_threshold value
+
+                    # get the xmin, ymin, width, and height coordinates from the contours
+                    (x, y, w, h) = cv2.boundingRect(contour)
+            
+                    # draw the bounding boxes
+                    image = cv2.rectangle(orig_frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+
+                    # Detect if contour is a sphere or not
+                    circle_bool = dcs.solidity(contour,area)
+
+                    # if fits rc dog toy criteria label
+                    if (circle_bool):
+                        cv2.putText(image, 'RC Dog Toy', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36,255,12), 2)
         
             cv2.imshow('Detected Objects', orig_frame)
             out.write(orig_frame)
