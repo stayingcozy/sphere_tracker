@@ -25,7 +25,7 @@ class FisheyeCamera():
         objpoints = [] # 3d point in real world space
         imgpoints = [] # 2d points in image plane.
 
-        files = os.path.join(dir_path,"*.jpeg")
+        files = os.path.join(dir_path,"*.jpg")
         images = glob.glob(files)
 
         for fname in images:
@@ -107,7 +107,11 @@ class FisheyeCamera():
         D = dist_matrix
 
         h,w = img.shape[:2]
-        assert [w,h] == DIM, "Input image size must match calibration image size."
+        # assert np.all(np.array([[w],[h]]) == DIM), "Input image size must match calibration image size."
+
+        if type(DIM) is np.ndarray:
+            DIM = DIM.tolist()
+            DIM = [DIM[0][0],DIM[1][0]]
 
         map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, D, np.eye(3), K, DIM, cv2.CV_16SC2)
         undistorted_img = cv2.remap(img, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
@@ -139,7 +143,8 @@ class FisheyeCamera():
         dist_matrix = cv_file.getNode('D').mat()
 
         cv_file.release()
-        return [dimension, camera_matrix, dist_matrix]
+
+        return dimension, camera_matrix, dist_matrix
 
 class NormalCamera():
     def __init__(self):
@@ -231,8 +236,8 @@ class NormalCamera():
 if __name__ == "__main__":
 
     # init values
-    dir_path = "chessboard"
-    ex_img = os.path.join(dir_path,"chessboard_18.jpeg")
+    dir_path = "chessboard_1080"
+    ex_img = os.path.join(dir_path,"chessboard_18.jpg")
 
     # # Normal Camera
     # nc = NormalCamera()

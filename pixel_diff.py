@@ -9,6 +9,8 @@ import numpy as np
 from cv_helper import video_capture
 from get_background_model import get_background_model
 import detect_contour_sphere as dcs
+import camera_calibration as cc
+import detect_edge_sphere as des
 
 ## Argument Description ##
 # --input path to the input video file
@@ -35,11 +37,14 @@ parser.add_argument('-b','--binary-threshold', default=50, type=int,
                     dest='binary_threshold', help='0-255 binary threshold for image')
 parser.add_argument('-ct','--contour-threshold',default=500,type=int,
                     dest='contour_threshold', help='Minimum area of contour threshold to process')
+parser.add_argument('-ud','--undistort',default=False,type=bool,
+                    dest='undistort',help='Boolean to undistort fisheye lens')
 args = vars(parser.parse_args())
 
 
+undistort = args['undistort']
 # get the background model
-background = get_background_model(args['input'])
+background = get_background_model(args['input'],undistort=undistort)
 
 # convert the background model to grayscale format
 background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
@@ -58,6 +63,11 @@ frame_height = int(vidcap.get(4))
 # Create save name
 save_name = f"outputs/{args['input'].split('/')[-1]}"
 
+if undistort:
+    # params for undistorting fisheye
+    fe = cc.FisheyeCamera()
+    DIM, K, D = fe.load_coefficients("chessboard_1080\\fisheye_calibration.yml")
+        
 # Create output directory if it doesn't exist
 if not os.path.isdir("outputs"):
     os.makedirs("outputs")
@@ -75,16 +85,21 @@ while (vidcap.isOpened()):
 
     if success == True:
         frame_count += 1
+
+        if undistort:
+            # undistort fisheye
+            frame = fe.undistort(frame,DIM,K,D)
+
         orig_frame = frame.copy()
 
-        # IMPORTANT STEP: convert the frame to grayscale first
+        # Convert the frame to grayscale first
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         if frame_count % consecutive_frame == 0:
             frame_diff_list = []
 
-        if frame_count == 200:
-            print("check point")
-
+        # Detect based on gray image
+        # gray = des.Hough_Circles(gray)
+        
         # find the difference between current frame and base frame
         frame_diff = cv2.absdiff(gray, background)
 
@@ -94,9 +109,10 @@ while (vidcap.isOpened()):
         # opening - erosion followed by dilation - remove dots | opposited is MORPH_CLOSE - remove holes in objects
         kernel = np.ones((3,3),np.uint8)
         opening_frame = cv2.morphologyEx(thres, cv2.MORPH_OPEN, kernel)
+        closing_frame = cv2.morphologyEx(opening_frame, cv2.MORPH_CLOSE, kernel)\
 
         # append the final result into the `frame_diff_list`
-        frame_diff_list.append(opening_frame)
+        frame_diff_list.append(closing_frame)
 
         # if we have reached `consecutive_frame` number of frames
         if len(frame_diff_list) == consecutive_frame:
@@ -106,8 +122,8 @@ while (vidcap.isOpened()):
             # find the contours around the white segmented areas
             contours, hierarchy = cv2.findContours(sum_frames, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE) #RETR_EXTERNAL
 
-            # # draw all the contours
-            # contours_image = cv2.drawContours(frame,contours,-1,(0,0,255),3)
+            # draw all the contours
+            contours_image = cv2.drawContours(frame,contours,-1,(0,0,255),3)
 
             for contour in contours:
 

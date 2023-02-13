@@ -5,9 +5,9 @@ import random
 import cv2
 
 from cv_helper import video_capture
+import camera_calibration as cc
 
-
-def get_background_model(filename):
+def get_background_model(filename,undistort):
     # opted out of vidcap.set(CV_CAP_PROP_POS_FRAMES, index) as it takes too long and is unreliable
 
     vidcap,success = video_capture(filename)
@@ -15,15 +15,22 @@ def get_background_model(filename):
     # Set random seed for consistent results
     random.seed(100)
 
+    if undistort:
+        # params for undistorting fisheye
+        fe = cc.FisheyeCamera()
+        DIM, K, D = fe.load_coefficients("chessboard_1080\\fisheye_calibration.yml")
+        
+
     # Store frames in list of arrays
     frames = []
     while success:
         # read frame
         success, frame = vidcap.read()
 
-        # Flip coin to record
-        if bool(random.getrandbits(1)) and success:
-            frames.append(frame)
+        if success:
+            # Flip coin to record
+            if bool(random.getrandbits(1)):
+                frames.append(frame)
 
     # Reduce number of frames for reasonable median calc time
     if len(frames) > 50:
@@ -37,6 +44,10 @@ def get_background_model(filename):
 
     # calculate the median
     median_frame = np.median(frames, axis=0).astype(np.uint8)
+
+    if undistort:
+        # undistort fisheye
+        median_frame = fe.undistort(median_frame,DIM,K,D)
 
     vidcap.release()
 
