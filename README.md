@@ -1,5 +1,5 @@
 <!-- Insert logo here -->
-<div align="central">
+<div align="center">
     <img src="images/SphereTrackerLogo.png" alt="Logo" width="200" height="200">
 </div>
 
@@ -9,10 +9,10 @@ Track spherical objects in videos. Includes fish eye camera calibration and obje
 # Demo
 
 <!-- Insert gif of output video  -->
-<p align="center">
-  <img src="demo1.gif" alt="animated" />
-  <img src="demo2.gif" alt="animated" />
-</p>
+<div align="center">
+  <img src="images/demo1.gif" alt="animated" />
+  <img src="images/demo2.gif" alt="animated" />
+</div>
 
 
 # Install
