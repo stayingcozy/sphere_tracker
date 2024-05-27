@@ -153,7 +153,7 @@ while (vidcap.isOpened()):
 
                     # if fits rc dog toy criteria label
                     if (circle_bool):
-                        cv2.putText(image, 'RC Dog Toy', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36,255,12), 2)
+                        cv2.putText(image, 'Sphere', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36,255,12), 2)
                 
 
             # Viz all
